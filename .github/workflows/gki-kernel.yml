@@ -7,7 +7,7 @@ on:
   workflow_call: # This allows this workflow to be called from another workflow
     inputs:
       make_release:
-        required: true
+        required: false
         type: boolean
         default: true
       android_version:
@@ -38,19 +38,23 @@ on:
         required: false
         type: string
       use_zram:
-        required: true
+        required: false
         type: boolean
         default: true
       use_kpm:
-        required: true
+        required: false
         type: boolean
         default: true
       supp_op:
-        required: true
+        required: false
         type: boolean
         default: false
       BBG:
-        required: true
+        required: false
+        type: boolean
+        default: false
+      set_defbbr:
+        required: false
         type: boolean
         default: false
 jobs:
@@ -333,6 +337,17 @@ jobs:
 
           cd ../common
           FORMATTED_BRANCH="${{ inputs.android_version }}-${{ inputs.kernel_version }}"
+          if [ "${{ inputs.kernelsu_variant }}" = "SukiSU" ] && [ "$FORMATTED_BRANCH" = "android15-6.6" ]; then
+            PATCH_FILE="50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch"
+            echo "Filtering SELinux hooks from $PATCH_FILE for SukiSU on $FORMATTED_BRANCH"
+            awk '
+              /^diff --git a\/security\/selinux\/(hooks\.c|selinuxfs\.c) / { drop = 1; next }
+              /^diff --git / { drop = 0 }
+              !drop { print }
+            ' "$PATCH_FILE" > "$PATCH_FILE.filtered"
+            mv "$PATCH_FILE.filtered" "$PATCH_FILE"
+          fi
+
           if grep -q deprecated <<< "$REMOTE_BRANCH" && \
              { [ "$FORMATTED_BRANCH" == "android12-5.10" ] && \
                [ ${{ inputs.sub_level }} -lt 136 ]; }; then
